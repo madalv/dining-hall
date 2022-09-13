@@ -16,13 +16,15 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
+import java.lang.Thread.sleep
 import java.util.*
 import java.util.concurrent.ThreadLocalRandom
 import kotlin.random.Random.Default.nextInt
 
-private val client = HttpClient(CIO) {
+ val client = HttpClient(CIO) {
     install(io.ktor.client.plugins.contentnegotiation.ContentNegotiation) {
         json(Json {
             prettyPrint = true
@@ -30,7 +32,7 @@ private val client = HttpClient(CIO) {
         })
     }
 }
-private val logger = KotlinLogging.logger {}
+ val logger = KotlinLogging.logger {}
 
 fun main() {
     embeddedServer(Netty, port = 8081, host = "0.0.0.0") {
@@ -42,39 +44,14 @@ fun main() {
             })
         }
 
-        for(i in 1..10) {
-            launch(CoroutineName("sendingOrder")) {
-
-                val order: Order = generateOrder()
-
-                // send order to kitchen
-                client.post {
-                    url {
-                        protocol = URLProtocol.HTTP
-                        host = cfg.kitchen
-                        path("/order")
-                        port = 8082
-                    }
-                    contentType(ContentType.Application.Json)
-                    setBody(order)
-                }
-                logger.debug { "Sending order ${order.id} to KITCHEN" }
+        for (i in 0 until Cfg.nrTables) {
+            val table = Table(TableState.FREE, i)
+            launch {
+                table.use()
             }
         }
 
     }.start(wait = true)
 }
 
-fun generateOrder() : Order {
 
-    val r = ThreadLocalRandom.current()
-    val id: Int = r.nextInt(0, cfg.orderIdMax)
-    val itemNr: Int = r.nextInt(1, cfg.maxItemsPerOrder)
-    val items: List<Int> = List(itemNr) {r.nextInt(0, 11)}
-    val prepTime: Int = r.nextInt(10, 60)
-    val time: Long = System.currentTimeMillis() / 1000
-
-    val order: Order = Order(id, items, 1, prepTime * cfg.waitTimeCoeff, time)
-
-    return order
-}
