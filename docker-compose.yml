@@ -1,0 +1,17 @@
+
+services:
+  dhall-server:
+    image: dhall-img
+    hostname: dhall
+    build:
+      context: .
+    ports:
+      - "8081:8081"
+    networks:
+      - restaurant
+
+networks:
+  restaurant:
+    name: restaurant
+    external: true
+
