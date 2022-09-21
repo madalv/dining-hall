@@ -1,52 +1,71 @@
 package com.madalv
 
-import io.ktor.client.request.*
-import io.ktor.http.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import java.util.concurrent.ThreadLocalRandom
 
 class Table(
-    var state: TableState,
-    val id: Int) {
+    private val id: Int
+) {
+    val receiveOrderChannel: Channel<Order> = Channel()
+    private var currentOrder = Order(-5, -5, listOf(),-5, -5, -5.0 )
 
     suspend fun use() {
         while (true) {
-            val time: Long = ThreadLocalRandom.current().nextLong(5, Cfg.maxTableWait + 1)
-            delay(time * Cfg.timeUnit)
-
+            wait()
             val order = generateOrder()
-            sendOrder(order)
+            //state = TableState.WAITING_TO_ORDER
+            currentOrder = order
+            logger.debug { "TABLE $id has order ${order.id}!" }
+            sendToWaitersChannel.send(order)
+            //state = TableState.WAITING_FOR_ORDER
+            receiveOrder()
+            //state = TableState.FREE
         }
     }
 
-    private suspend fun sendOrder(order: Order) {
+    private suspend fun receiveOrder() {
 
-        client.post {
-            url {
-                protocol = URLProtocol.HTTP
-                host = Cfg.host
-                path("/order")
-                port = 8082
-            }
-            contentType(ContentType.Application.Json)
-            setBody(order)
-        }
-        state = TableState.WAITING_FOR_ORDER
-        logger.debug { "Sending order ${order.id} to KITCHEN. Table $id WAITING FOR ORDER" }
+        val order = receiveOrderChannel.receive()
+        val servingTime = System.currentTimeMillis()
+        val waitTime = servingTime - order.pickupTime
+        var rating = 0
+
+        if (waitTime <= order.maxWait * Cfg.timeUnit) rating = 5
+        else if (waitTime <= order.maxWait * 1.1 * Cfg.timeUnit) rating = 4
+        else if (waitTime <= order.maxWait * 1.2 * Cfg.timeUnit) rating = 3
+        else if (waitTime <= order.maxWait * 1.3 * Cfg.timeUnit) rating = 2
+        else if (waitTime <= order.maxWait * 1.4 * Cfg.timeUnit) rating = 1
+
+        ratingChannel.send(rating)
+
+        if (currentOrder.id == order.id)
+            logger.debug { "Order ${order.id} received by Table $id! RATING $rating WAITIME $waitTime MAXWAIT ${order.maxWait * Cfg.timeUnit}" }
+        else
+            logger.debug { "ORDER MISMATCH: table $id sent order $currentOrder.id but got ${order.id}." }
     }
 
-    private fun generateOrder() : Order {
+
+    private suspend fun wait() {
+        val time: Long = ThreadLocalRandom.current().nextLong(5, Cfg.maxTableWait + 1)
+        delay(time * Cfg.timeUnit)
+    }
+
+    private fun generateOrder(): Order {
 
         val r = ThreadLocalRandom.current()
         val idOrder: Int = r.nextInt(0, Cfg.orderIdMax)
         val itemNr: Int = r.nextInt(1, Cfg.maxItemsPerOrder)
-        val items: List<Int> = List(itemNr) {r.nextInt(0, 11)}
-        val prepTime: Int = r.nextInt(10, 60)
-        val time: Long = System.currentTimeMillis() / 1000
-        val order: Order = Order(idOrder, id, 0, items, 1, prepTime * Cfg.waitTimeCoeff, time)
+        val items: List<Int> = List(itemNr) { r.nextInt(1, menu.size + 1) }
+        val time: Long = System.currentTimeMillis()
+        val priority = menu.size - itemNr
 
-        logger.debug { "Table $id generated order ${order.id}, now WAITING TO ORDER" }
-        state = TableState.WAITING_TO_ORDER
-        return order
+        var prepTimeMax = 0
+        for (foodId in items) {
+            if (menu[foodId - 1].preparationTime > prepTimeMax)
+                prepTimeMax = menu[foodId - 1].preparationTime
+        }
+
+        return Order(idOrder, id, items, priority, time, prepTimeMax * Cfg.waitTimeCoefficient)
     }
 }
