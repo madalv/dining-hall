@@ -5,7 +5,7 @@ FROM openjdk:18-slim
 WORKDIR /src
 COPY . /src
 
-#RUN gradlew buildFatJar
+#RUN bash gradlew buildFatJar
 
 
 EXPOSE 8081:8081
