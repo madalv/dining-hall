@@ -47,7 +47,7 @@ class Table(
 
 
     private suspend fun wait() {
-        val time: Long = ThreadLocalRandom.current().nextLong(5, Cfg.maxTableWait + 1)
+        val time: Long = ThreadLocalRandom.current().nextLong(Cfg.minTableWait, Cfg.maxTableWait + 1)
         delay(time * Cfg.timeUnit)
     }
 
@@ -60,7 +60,7 @@ class Table(
         val time: Long = System.currentTimeMillis()
         val priority = menu.size - itemNr
 
-        var prepTimeMax = 0
+        var prepTimeMax: Long = 0
         for (foodId in items) {
             if (menu[foodId - 1].preparationTime > prepTimeMax)
                 prepTimeMax = menu[foodId - 1].preparationTime
