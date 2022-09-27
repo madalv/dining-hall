@@ -1,13 +1,14 @@
 package com.madalv.plugins
 
 import com.madalv.Order
-import com.madalv.logger
 import com.madalv.waiters
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import mu.KotlinLogging
 
+val logger = KotlinLogging.logger {}
 fun Application.configureRouting() {
 
     routing {
