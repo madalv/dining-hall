@@ -47,7 +47,7 @@ class Table(
 
 
     private suspend fun wait() {
-        val time: Long = ThreadLocalRandom.current().nextLong(5, Cfg.maxTableWait + 1)
+        val time: Long = ThreadLocalRandom.current().nextLong(Cfg.minTableWait, Cfg.maxTableWait + 1)
         delay(time * Cfg.timeUnit)
     }
 
@@ -58,13 +58,16 @@ class Table(
         val itemNr: Int = r.nextInt(1, Cfg.maxItemsPerOrder)
         val items: List<Int> = List(itemNr) { r.nextInt(1, menu.size + 1) }
         val time: Long = System.currentTimeMillis()
-        val priority = menu.size - itemNr
 
-        var prepTimeMax = 0
+        var prepTimeMax: Long = 0
         for (foodId in items) {
             if (menu[foodId - 1].preparationTime > prepTimeMax)
                 prepTimeMax = menu[foodId - 1].preparationTime
         }
+
+        val priority = menu.size - itemNr
+        //val priority = 100 - prepTimeMax.toInt()
+
 
         return Order(idOrder, id, items, priority, time, prepTimeMax * Cfg.waitTimeCoefficient)
     }
