@@ -1,5 +1,6 @@
 package com.madalv.plugins
 
+import com.madalv.DetailedOrder
 import com.madalv.Order
 import com.madalv.waiters
 import io.ktor.server.application.*
@@ -16,7 +17,7 @@ fun Application.configureRouting() {
             call.respondText("Hello Dining Hall!")
         }
         post("/distribution") {
-            val order: Order = call.receive()
+            val order: DetailedOrder = call.receive()
             logger.debug { "------------------ GOT ORDER ${order.id} AT DISTRIBUTION POINT ------------------" }
             waiters[order.waiterId].distributionChannel.send(order)
         }

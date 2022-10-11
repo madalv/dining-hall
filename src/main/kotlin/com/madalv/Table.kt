@@ -7,7 +7,7 @@ import java.util.concurrent.ThreadLocalRandom
 class Table(
     private val id: Int
 ) {
-    val receiveOrderChannel: Channel<Order> = Channel()
+    val receiveOrderChannel: Channel<DetailedOrder> = Channel()
     private var currentOrder = Order(-5, -5, listOf(),-5, -5, -5.0 )
 
     suspend fun use() {
@@ -28,36 +28,41 @@ class Table(
 
         val order = receiveOrderChannel.receive()
         val servingTime = System.currentTimeMillis()
-        val waitTime = servingTime - order.pickupTime
+        val waitTime = order.cookingTime
         var rating = 0
 
-        if (waitTime <= order.maxWait * Cfg.timeUnit) rating = 5
-        else if (waitTime <= order.maxWait * 1.1 * Cfg.timeUnit) rating = 4
-        else if (waitTime <= order.maxWait * 1.2 * Cfg.timeUnit) rating = 3
-        else if (waitTime <= order.maxWait * 1.3 * Cfg.timeUnit) rating = 2
-        else if (waitTime <= order.maxWait * 1.4 * Cfg.timeUnit) rating = 1
+        if (waitTime <= order.maxWait * cfg.timeUnit) rating = 5
+        else if (waitTime <= order.maxWait * 1.1 * cfg.timeUnit) rating = 4
+        else if (waitTime <= order.maxWait * 1.2 * cfg.timeUnit) rating = 3
+        else if (waitTime <= order.maxWait * 1.3 * cfg.timeUnit) rating = 2
+        else if (waitTime <= order.maxWait * 1.4 * cfg.timeUnit) rating = 1
 
         ratingChannel.send(rating)
 
         if (currentOrder.id == order.id)
-            logger.debug { "Order ${order.id} received by Table $id! RATING $rating WAITIME $waitTime MAXWAIT ${order.maxWait * Cfg.timeUnit}" }
+            logger.debug { "Order ${order.id} received by Table $id! RATING $rating WAITIME $waitTime MAXWAIT ${order.maxWait * cfg.timeUnit}" }
         else
             logger.debug { "ORDER MISMATCH: table $id sent order $currentOrder.id but got ${order.id}." }
     }
 
 
     private suspend fun wait() {
-        val time: Long = ThreadLocalRandom.current().nextLong(Cfg.minTableWait, Cfg.maxTableWait + 1)
-        delay(time * Cfg.timeUnit)
+        val time: Long = ThreadLocalRandom.current().nextLong(cfg.minTableWait, cfg.maxTableWait + 1)
+        delay(time * cfg.timeUnit)
     }
 
     private fun generateOrder(): Order {
 
         val r = ThreadLocalRandom.current()
-        val idOrder: Int = r.nextInt(0, Cfg.orderIdMax)
-        val itemNr: Int = r.nextInt(1, Cfg.maxItemsPerOrder)
+        val idOrder: Int = r.nextInt(0, cfg.orderIdMax)
+        var itemNr: Int = r.nextInt(1, cfg.maxItemsPerOrder)
         val items: List<Int> = List(itemNr) { r.nextInt(1, menu.size + 1) }
         val time: Long = System.currentTimeMillis()
+
+        for (i in 0 until 3) {
+            if (itemNr > 5) itemNr = r.nextInt(1, cfg.maxItemsPerOrder)
+            else break
+        }
 
         var prepTimeMax: Long = 0
         for (foodId in items) {
@@ -69,6 +74,6 @@ class Table(
         //val priority = 100 - prepTimeMax.toInt()
 
 
-        return Order(idOrder, id, items, priority, time, prepTimeMax * Cfg.waitTimeCoefficient)
+        return Order(idOrder, id, items, priority, time, prepTimeMax * cfg.waitTimeCoefficient)
     }
 }

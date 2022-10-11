@@ -11,21 +11,11 @@ import mu.KotlinLogging
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
-object Cfg {
-    const val host = "localhost"
-    const val timeUnit = 100
-    const val nrTables = 10
-    const val nrWaiters = 4
-    const val maxItemsPerOrder = 10
-    const val orderIdMax = 500
-    const val waiterPickupTimeMax: Long = 4
-    const val waiterPickupTimeMin: Long = 2
 
+val configJson: String =
+File("config/config.json").inputStream().readBytes().toString(Charsets.UTF_8)
 
-    const val maxTableWait: Long = 60
-    const val minTableWait: Long = 10
-    const val waitTimeCoefficient = 1.3
-}
+val cfg: Config = Json.decodeFromString(Config.serializer(), configJson)
 
 val client = HttpClient(CIO) {
     install(ContentNegotiation) {
@@ -46,13 +36,17 @@ var rating = AtomicInteger(0)
 var nrOrders = AtomicInteger(0)
 
 val menuJson: String =
-    File("src/main/kotlin/com/madalv/config/menu.json").inputStream().readBytes().toString(Charsets.UTF_8)
+    File("config/menu.json").inputStream().readBytes().toString(Charsets.UTF_8)
 val menu = Json { coerceInputValues = true }.decodeFromString(ListSerializer(Food.serializer()), menuJson)
 suspend fun calculateRating() {
     while (true) {
         val ratingCurrent = ratingChannel.receive()
         nrOrders.incrementAndGet()
         rating.addAndGet(ratingCurrent)
-        logger.debug { "------------------------------------------------------- AVG RATING: ${rating.get().toDouble() / nrOrders.get()}"  }
+        logger.debug {
+            "------------------------------------------------------- AVG RATING: ${
+                rating.get().toDouble() / nrOrders.get()
+            }"
+        }
     }
 }
