@@ -10,7 +10,7 @@ import java.util.concurrent.ThreadLocalRandom
 
 class Waiter(private val id: Int) {
     // used to send distribute orders to waiters from kitchen
-    val distributionChannel = Channel<Order>()
+    val distributionChannel = Channel<DetailedOrder>()
 
     suspend fun pickupOrder() {
         for (order in sendToWaitersChannel) {
@@ -32,18 +32,13 @@ class Waiter(private val id: Int) {
 
     private suspend fun talkToClient() {
         val time: Long = ThreadLocalRandom.current()
-            .nextLong(Cfg.waiterPickupTimeMin, Cfg.waiterPickupTimeMax + 1)
-        delay(time * Cfg.timeUnit)
+            .nextLong(cfg.waiterPickupTimeMin, cfg.waiterPickupTimeMax + 1)
+        delay(time * cfg.timeUnit)
     }
 
     private suspend fun sendOrder(order: Order) {
-        client.post {
-            url {
-                protocol = URLProtocol.HTTP
-                host = Cfg.host
-                path("/order")
-                port = 8082
-            }
+        println(cfg.kitchen)
+        client.post("http://${cfg.kitchen}/order") {
             contentType(ContentType.Application.Json)
             setBody(Json.encodeToJsonElement(order))
         }

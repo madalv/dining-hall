@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 fun main() {
-    embeddedServer(Netty, port = 8081, host = "0.0.0.0") {
+    embeddedServer(Netty, port = cfg.port, host = "0.0.0.0") {
         configureRouting()
         install(ContentNegotiation) {
             json(Json {
@@ -19,7 +19,7 @@ fun main() {
             })
         }
 
-        for (i in 0 until Cfg.nrTables) {
+        for (i in 0 until cfg.nrTables) {
             val table = Table(i)
             tables.add(table)
             launch {
@@ -27,7 +27,7 @@ fun main() {
             }
         }
 
-        for (i in 0 until Cfg.nrWaiters) {
+        for (i in 0 until cfg.nrWaiters) {
             val waiter = Waiter(i)
             waiters.add(waiter)
             launch {
@@ -40,6 +40,10 @@ fun main() {
 
         launch {
             calculateRating()
+        }
+
+        launch {
+            registerRestaurant()
         }
 
     }.start(wait = true)
