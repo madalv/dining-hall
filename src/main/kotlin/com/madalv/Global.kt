@@ -1,8 +1,11 @@
 package com.madalv
 
+import com.madalv.lab2logic.RestaurantData
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.builtins.ListSerializer
@@ -13,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 
 val configJson: String =
-File("config/config.json").inputStream().readBytes().toString(Charsets.UTF_8)
+    File("config/config.json").inputStream().readBytes().toString(Charsets.UTF_8)
 
 val cfg: Config = Json.decodeFromString(Config.serializer(), configJson)
 
@@ -34,6 +37,7 @@ val tables = mutableListOf<Table>()
 val waiters = mutableListOf<Waiter>()
 var rating = AtomicInteger(0)
 var nrOrders = AtomicInteger(0)
+var avgRating: Double = 0.0
 
 val menuJson: String =
     File("config/menu.json").inputStream().readBytes().toString(Charsets.UTF_8)
@@ -43,10 +47,17 @@ suspend fun calculateRating() {
         val ratingCurrent = ratingChannel.receive()
         nrOrders.incrementAndGet()
         rating.addAndGet(ratingCurrent)
+        avgRating = rating.get().toDouble() / nrOrders.get()
         logger.debug {
-            "------------------------------------------------------- AVG RATING: ${
-                rating.get().toDouble() / nrOrders.get()
-            }"
+            "------------------------------------------- AVG RATING: $avgRating"
         }
     }
+}
+
+suspend fun registerRestaurant() {
+    client.post("http://${cfg.orderingService}/register") {
+        contentType(ContentType.Application.Json)
+        setBody(RestaurantData(cfg.restaurantID, cfg.name, cfg.address, menu.size, menu, avgRating))
+    }
+    logger.debug { "RESTAURANT ${cfg.name} REGISTERED ITSELF!" }
 }

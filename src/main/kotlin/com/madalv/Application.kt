@@ -42,6 +42,10 @@ fun main() {
             calculateRating()
         }
 
+        launch {
+            registerRestaurant()
+        }
+
     }.start(wait = true)
 }
 

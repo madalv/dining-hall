@@ -8,7 +8,7 @@ class Table(
     private val id: Int
 ) {
     val receiveOrderChannel: Channel<DetailedOrder> = Channel()
-    private var currentOrder = Order(-5, -5, listOf(),-5, -5, -5.0 )
+    private var currentOrder = Order(listOf(), -5, -5.0, -5, -5, -5, -5, -5)
 
     suspend fun use() {
         while (true) {
@@ -74,6 +74,6 @@ class Table(
         //val priority = 100 - prepTimeMax.toInt()
 
 
-        return Order(idOrder, id, items, priority, time, prepTimeMax * cfg.waitTimeCoefficient)
+        return Order(items, priority, prepTimeMax * cfg.waitTimeCoefficient, time, idOrder, id, -5, -5)
     }
 }

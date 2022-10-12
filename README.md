@@ -1,23 +1,20 @@
 ## Steps to run Dining Hall
 
-1. Make sure Kitchen is already running.
-2. Create fatJar.
-
-Step 2 can be done either by
-- uncommenting the line in the Dockerfile,
-- or, if you don't want to suffer, create it yourself before calling docker compose.
-  Creating a fatJar can be done by:
-```
-gradlew buildFatJar
-```
-Or, just use IntelliJ IDEA and execute the Gradle task there. 
-
-3. Run the command below:
+1. Make sure Kitchen and Ordering Service are already running.
+2. Run the command below:
 
 ```
 docker compose up --build
 ```
 
 ## Other notes
- 
-If you want to run it on your local machine, set the hostname in the requests to `localhost` and run `Application.kt`. The ports don't need to be changed.
+
+If you want to connect the cluster of restaurants running in Docker containers to the OrderingService
+which is running on your local machine, change following fields in ALL `config.json` files as such:
+
+```json
+"ordering_service": "localhost:9000",
+"address": "localhost:8083"
+```
+
+And for the love of God, do not change the ports!

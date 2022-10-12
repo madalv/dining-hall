@@ -3,7 +3,6 @@ package com.madalv
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import kotlin.properties.Delegates
 
 @Serializable
 data class DetailedOrder(
@@ -17,10 +16,7 @@ data class DetailedOrder(
     @SerialName("cooking_details") var orderItems: MutableList<OrderItem>
 ) {
     @SerialName("cooking_time")
-    val cookingTime : Double = 0.0
-
-    @Transient
-    var orderProcessTime: Long = 0
+    var cookingTime: Long = 0
 }
 
 @Serializable
