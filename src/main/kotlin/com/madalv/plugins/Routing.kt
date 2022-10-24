@@ -24,7 +24,7 @@ fun Application.configureRouting() {
         post("/distribution") {
             val order: DetailedOrder = call.receive()
             if (order.waiterId == -5) {
-                logger.debug { "------------------ TAEKOUT ${order.id} READY ------------------" }
+                logger.debug { "------------------ TAKEOUT ${order.id} READY ------------------" }
             } else {
                 logger.debug { "------------------ GOT ORDER ${order.id} AT DISTRIBUTION POINT ------------------" }
                 waiters[order.waiterId].distributionChannel.send(order)
@@ -35,27 +35,28 @@ fun Application.configureRouting() {
         route("/v2") {
             // CLIENT CHECKS IF ORDER IS READY
             get("/order/{id}") {
-
             }
             // ORDERING SERVICE SENDS NEW ORDER
             post("/order") {
                 launch {
-                    val order: Order = call.receive()
-                    order.id = ThreadLocalRandom.current().nextInt(0, cfg.orderIdMax)
-                    order.tableId = -5
-                    order.waiterId = -5
-                    order.pickupTime = -5
-                    logger.debug { " ---- GOT takeout $order, sending to kitchen!" }
-                    //logger.debug { Json.encodeToJsonElement(order) }
+                    val torder: TakeoutOrder = call.receive()
+                    val order = Order(torder.items,
+                        torder.priority,
+                        torder.maxWait,
+                        torder.createdTime,
+                        ThreadLocalRandom.current().nextInt(0, cfg.orderIdMax),
+                        -5, -5, -5
+                    )
+                    val takeoutResponse = TakeoutResponse(
+                        order.id, cfg.restaurantID, cfg.address,
+                        69.0, order.createdTime, System.currentTimeMillis()
+                    )
+                    call.respond(takeoutResponse)
+                    logger.debug { " ---- GOT TAEKOUT $order, sending to kitchen!" }
                     client.post("http://${cfg.kitchen}/order") {
                         contentType(ContentType.Application.Json)
                         setBody(Json.encodeToJsonElement(Json.encodeToJsonElement(order)))
                     }
-                    val takeoutResponse = TakeoutResponse(
-                        order.id!!, cfg.restaurantID, cfg.address,
-                        69.0, order.createdTime, System.currentTimeMillis()
-                    )
-                    //call.respond(takeoutResponse)
                 }
             }
         }
