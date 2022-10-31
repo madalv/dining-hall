@@ -2,6 +2,8 @@ package com.madalv.plugins
 
 import com.madalv.*
 import com.madalv.lab2logic.DetailedTakeout
+import com.madalv.lab2logic.Rating
+import com.madalv.lab2logic.RestaurantResponse
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
@@ -52,8 +54,6 @@ fun Application.configureRouting() {
             }
         }
 
-        // TODO finish pickup (retrying if not ready)
-        // TODO rating
 
         // lab 2 BS
         route("/v2") {
@@ -100,6 +100,12 @@ fun Application.configureRouting() {
                     }
                     call.respond(takeoutResponse!!)
                 }
+            }
+
+            post("/rating") {
+                val rating: Rating = call.receive()
+                ratingChannel.send(rating.rating)
+                call.respond(RestaurantResponse(cfg.restaurantID, avgRating, nrOrders.get()))
             }
         }
     }
