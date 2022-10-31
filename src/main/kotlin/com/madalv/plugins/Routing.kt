@@ -1,6 +1,7 @@
 package com.madalv.plugins
 
 import com.madalv.*
+import com.madalv.lab2logic.DetailedTakeout
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
@@ -14,9 +15,13 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
 import mu.KotlinLogging
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
 
 val logger = KotlinLogging.logger {}
+val readyTakeouts = ConcurrentHashMap<Int, DetailedTakeout>()
+val responses = ConcurrentHashMap<Int, TakeoutResponse>()
+
 fun Application.configureRouting() {
 
     routing {
@@ -27,6 +32,19 @@ fun Application.configureRouting() {
         post("/distribution") {
             val order: DetailedOrder = call.receive()
             if (order.waiterId == -5) {
+                val response = responses.getValue(order.id)
+                readyTakeouts[order.id] = DetailedTakeout(
+                    order.id,
+                    true,
+                    order.priority,
+                    response.estimatedWait,
+                    response.createdTime,
+                    response.registeredTime,
+                    order.cookingTime,
+                    order.cookingTime,
+                    order.maxWait,
+                    order.orderItems
+                )
                 logger.debug { "------------------ TAKEOUT ${order.id} READY ------------------" }
             } else {
                 logger.debug { "------------------ GOT ORDER ${order.id} AT DISTRIBUTION POINT ------------------" }
@@ -34,44 +52,51 @@ fun Application.configureRouting() {
             }
         }
 
-        // TODO finish: client gets order, restaurant order map and retrieval
-        // TODO check if client code works
-        // TODO rating :c
+        // TODO finish pickup (retrying if not ready)
+        // TODO rating
 
         // lab 2 BS
         route("/v2") {
             // CLIENT CHECKS IF ORDER IS READY
             get("/order/{id}") {
+                launch {
+                    val id: Int? = call.parameters["id"]?.toInt()
+                    logger.debug { " - - Client has come to pickup takeout $id" }
+                    if (readyTakeouts.containsKey(id)) {
+                        logger.debug { " - - Takeout $id ready!" }
+                        call.respond(readyTakeouts[id]!!)
 
+                        responses.remove(id)
+                        readyTakeouts.remove(id)
+                    } else {
+                        logger.debug { " - - Come back later!" }
+                        call.respond(DetailedTakeout(id!!, false, 0, responses.getValue(id).estimatedWait,
+                            0, 0, 0, 0, 0.0, mutableListOf()))
+                    }
+                }
             }
             // ORDERING SERVICE SENDS NEW ORDER
             post("/order") {
                 launch {
-                    val torder: TakeoutOrder = call.receive()
-                    val order = Order(torder.items, torder.priority, torder.maxWait, torder.createdTime,
-                        ThreadLocalRandom.current().nextInt(0, cfg.orderIdMax),
-                        -5, -5, -5
-                    )
-
-                    logger.debug { " ---- GOT TAEKOUT $order, sending to kitchen!" }
-
                     var takeoutResponse: TakeoutResponse?
                     runBlocking {
+                        val torder: TakeoutOrder = call.receive()
+                        val order = Order(torder.items, torder.priority, torder.maxWait, torder.createdTime,
+                            ThreadLocalRandom.current().nextInt(0, cfg.orderIdMax),
+                            -5, -5, -5
+                        )
+
+                        logger.debug { " ---- GOT TAEKOUT $order, sending to kitchen!" }
+
                         val response = async { getKitchenRespone(order) }
 
                         val kitchenResponse = response.await()
-                        logger.debug { kitchenResponse }
-
-
-//                        client.post("http://${cfg.kitchen}/order") {
-//                            contentType(ContentType.Application.Json)
-//                            setBody(Json.encodeToJsonElement(order))
-//                        }
 
                         takeoutResponse = TakeoutResponse(
                             order.id, cfg.restaurantID, cfg.address,
                             calculateEstimatedWait(kitchenResponse, order), order.createdTime, System.currentTimeMillis()
                         )
+                        responses[order.id] = takeoutResponse!!
                     }
                     call.respond(takeoutResponse!!)
                 }
@@ -81,12 +106,10 @@ fun Application.configureRouting() {
 }
 
 suspend fun getKitchenRespone(order: Order): OrderResponse {
-    val response: OrderResponse = client.post("http://${cfg.kitchen}/order") {
+    return client.post("http://${cfg.kitchen}/order") {
         contentType(ContentType.Application.Json)
         setBody(order)
     }.body()
-
-    return response
 }
 
 fun calculateEstimatedWait(response: OrderResponse, order: Order): Double {
