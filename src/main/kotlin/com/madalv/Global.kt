@@ -1,7 +1,9 @@
 package com.madalv
 
+import com.madalv.lab2logic.DetailedTakeout
 import com.madalv.lab2logic.RestaurantData
 import io.ktor.client.*
+import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
@@ -12,6 +14,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 
@@ -39,6 +42,10 @@ var rating = AtomicInteger(0)
 var nrOrders = AtomicInteger(0)
 var avgRating: Double = 0.0
 
+
+val readyTakeouts = ConcurrentHashMap<Int, DetailedTakeout>()
+val responses = ConcurrentHashMap<Int, TakeoutResponse>()
+
 val menuJson: String =
     File("config/menu.json").inputStream().readBytes().toString(Charsets.UTF_8)
 val menu = Json { coerceInputValues = true }.decodeFromString(ListSerializer(Food.serializer()), menuJson)
@@ -61,3 +68,22 @@ suspend fun registerRestaurant() {
     }
     logger.debug { "RESTAURANT ${cfg.name} REGISTERED ITSELF!" }
 }
+suspend fun getKitchenRespone(order: Order): OrderResponse {
+    return client.post("http://${cfg.kitchen}/order") {
+        contentType(ContentType.Application.Json)
+        setBody(order)
+    }.body()
+}
+
+fun calculateEstimatedWait(response: OrderResponse, order: Order): Double {
+    var A = 0.0
+    for (item in order.items)
+        if (menu[item - 1].cookingApparatus == null) A++
+    val B = response.sumProeficiency.toDouble()
+    val C = order.items.size - A
+    val D = response.nrCookingApp.toDouble()
+    val E: Double = (response.nrWaitingOrders * cfg.maxItemsPerOrder).toDouble()
+    val F = order.items.size.toDouble()
+    return (A / B + C / D) * (E + F) / F
+}
+
