@@ -23,6 +23,18 @@ services:
       - "8083:8083"
     networks:
       - restaurant
+  dhall3:
+    image: dhall-img
+    hostname: dhall3
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - "/home/madalv/Univer/pr/dining-hall/config3:/app/config"
+    ports:
+      - "8085:8085"
+    networks:
+      - restaurant
 networks:
   restaurant:
     name: restaurant

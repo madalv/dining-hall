@@ -21,30 +21,19 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
 
 val logger = KotlinLogging.logger {}
-val readyTakeouts = ConcurrentHashMap<Int, DetailedTakeout>()
-val responses = ConcurrentHashMap<Int, TakeoutResponse>()
 
 fun Application.configureRouting() {
-
     routing {
         get("/") {
-            call.respondText("Hello Dining Hall!")
+            call.respondText("Hello Dining Hall Restaurant ${cfg.name}!")
         }
         // GOT ORDER BACK FROM KITCHEN
         post("/distribution") {
             val order: DetailedOrder = call.receive()
             if (order.waiterId == -5) {
                 val response = responses.getValue(order.id)
-                readyTakeouts[order.id] = DetailedTakeout(
-                    order.id,
-                    true,
-                    order.priority,
-                    response.estimatedWait,
-                    response.createdTime,
-                    response.registeredTime,
-                    order.cookingTime,
-                    order.cookingTime,
-                    order.maxWait,
+                readyTakeouts[order.id] = DetailedTakeout(order.id, true, order.priority, response.estimatedWait,
+                    response.createdTime, response.registeredTime, order.cookingTime, order.cookingTime, order.maxWait,
                     order.orderItems
                 )
                 logger.debug { "------------------ TAKEOUT ${order.id} READY ------------------" }
@@ -65,7 +54,6 @@ fun Application.configureRouting() {
                     if (readyTakeouts.containsKey(id)) {
                         logger.debug { " - - Takeout $id ready!" }
                         call.respond(readyTakeouts[id]!!)
-
                         responses.remove(id)
                         readyTakeouts.remove(id)
                     } else {
@@ -87,13 +75,10 @@ fun Application.configureRouting() {
                         )
 
                         logger.debug { " ---- GOT TAEKOUT $order, sending to kitchen!" }
-
                         val response = async { getKitchenRespone(order) }
-
                         val kitchenResponse = response.await()
 
-                        takeoutResponse = TakeoutResponse(
-                            order.id, cfg.restaurantID, cfg.address,
+                        takeoutResponse = TakeoutResponse(order.id, cfg.restaurantID, cfg.address,
                             calculateEstimatedWait(kitchenResponse, order), order.createdTime, System.currentTimeMillis()
                         )
                         responses[order.id] = takeoutResponse!!
@@ -109,23 +94,4 @@ fun Application.configureRouting() {
             }
         }
     }
-}
-
-suspend fun getKitchenRespone(order: Order): OrderResponse {
-    return client.post("http://${cfg.kitchen}/order") {
-        contentType(ContentType.Application.Json)
-        setBody(order)
-    }.body()
-}
-
-fun calculateEstimatedWait(response: OrderResponse, order: Order): Double {
-    var A = 0.0
-    for (item in order.items)
-        if (menu[item - 1].cookingApparatus == null) A++
-    val B = response.sumProeficiency.toDouble()
-    val C = order.items.size - A
-    val D = response.nrCookingApp.toDouble()
-    val E: Double = (response.nrWaitingOrders * cfg.maxItemsPerOrder).toDouble()
-    val F = order.items.size.toDouble()
-    return (A / B + C / D) * (E + F) / F
 }

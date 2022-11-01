@@ -1,7 +1,7 @@
 {
-  "kitchen": "kitchen2:8084",
-  "port": 8083,
-  "host": "dhall2",
+  "kitchen": "kitchen3:8086",
+  "port": 8085,
+  "host": "dhall3",
   "timeunit": 100,
   "nr_waiters": 3,
   "nr_tables": 6,
@@ -12,8 +12,8 @@
   "min_tablewait": 30,
   "max_tablewait": 60,
   "waitime_coefficient": 1.3,
-  "restaurant_id": 2,
-  "name": "ASS 2",
+  "restaurant_id": 3,
+  "name": "ASS 3",
   "ordering_service": "172.17.0.1:9000",
-  "address": "localhost:8083"
+  "address": "localhost:8085"
 }
